@@ -14,19 +14,9 @@ class ThreadService {
    */
   async createThread(authorId, content, media = null) {
     try {
-      // Vérifier si le fichier média existe avant de créer le thread
+      // ⚠️ FIX: Ne pas vérifier l'existence du fichier localement si c'est une URL Cloudinary
+      // Le check fs.existsSync échoue pour les URLs distantes
       let mediaData = media;
-      if (media && media.url) {
-        const fs = await import('fs');
-        const path = await import('path');
-        const __dirname = path.dirname(new URL(import.meta.url).pathname);
-        const filePath = path.join(__dirname, "../uploads", path.basename(media.url));
-        
-        if (!fs.existsSync(filePath)) {
-          console.log("⚠️ Fichier média non trouvé:", filePath);
-          mediaData = null; // Ne pas inclure le média s'il n'existe pas
-        }
-      }
 
       const thread = await Thread.create({
         author: authorId,
@@ -124,78 +114,78 @@ class ThreadService {
               if (!thread.author) {
                 return null;
               }
-            const isLiked = await Like.exists({
-              user: currentUserId,
-              thread: thread._id,
-            });
-
-            const authorId = thread.author._id.toString();
-            const followStatus = followedMap.get(authorId);
-            const isFollowing = !!followStatus;
-            const repostSourceId =
-              thread.repostedFrom?._id || thread.repostedFrom || thread._id;
-            const isReposted = repostedMap.has(repostSourceId.toString());
-
-            let threadData = thread.toObject();
-
-            // Populate repostedFrom avec toutes les infos nécessaires
-            if (thread.repostedFrom) {
-              await thread.populate({
-                path: "repostedFrom",
-                select:
-                  "author content media likes replies repliesCount repostsCount createdAt updatedAt",
-                populate: {
-                  path: "author",
-                  select: "username name profilePicture isVerified",
-                },
+              const isLiked = await Like.exists({
+                user: currentUserId,
+                thread: thread._id,
               });
 
-              // Ajouter isLiked pour le post original aussi
-              const originalThreadId =
-                thread.repostedFrom?._id || thread.repostedFrom;
-              const originalIsLiked = originalThreadId
-                ? await Like.exists({
+              const authorId = thread.author._id.toString();
+              const followStatus = followedMap.get(authorId);
+              const isFollowing = !!followStatus;
+              const repostSourceId =
+                thread.repostedFrom?._id || thread.repostedFrom || thread._id;
+              const isReposted = repostedMap.has(repostSourceId.toString());
+
+              let threadData = thread.toObject();
+
+              // Populate repostedFrom avec toutes les infos nécessaires
+              if (thread.repostedFrom) {
+                await thread.populate({
+                  path: "repostedFrom",
+                  select:
+                    "author content media likes replies repliesCount repostsCount createdAt updatedAt",
+                  populate: {
+                    path: "author",
+                    select: "username name profilePicture isVerified",
+                  },
+                });
+
+                // Ajouter isLiked pour le post original aussi
+                const originalThreadId =
+                  thread.repostedFrom?._id || thread.repostedFrom;
+                const originalIsLiked = originalThreadId
+                  ? await Like.exists({
                     user: currentUserId,
                     thread: originalThreadId,
                   })
-                : false;
+                  : false;
 
-              const originalAuthor =
-                typeof thread.repostedFrom.author?.toObject === "function"
-                  ? thread.repostedFrom.author.toObject()
-                  : thread.repostedFrom.author;
-              const originalAuthorId = originalAuthor?._id?.toString();
-              const originalFollowStatus = originalAuthorId
-                ? followedMap.get(originalAuthorId)
-                : null;
+                const originalAuthor =
+                  typeof thread.repostedFrom.author?.toObject === "function"
+                    ? thread.repostedFrom.author.toObject()
+                    : thread.repostedFrom.author;
+                const originalAuthorId = originalAuthor?._id?.toString();
+                const originalFollowStatus = originalAuthorId
+                  ? followedMap.get(originalAuthorId)
+                  : null;
 
-              threadData.repostedFrom = {
-                ...thread.repostedFrom.toObject(),
-                isLiked: !!originalIsLiked,
-                likesCount: thread.repostedFrom.likes?.length || 0,
-                author: originalAuthor
-                  ? {
+                threadData.repostedFrom = {
+                  ...thread.repostedFrom.toObject(),
+                  isLiked: !!originalIsLiked,
+                  likesCount: thread.repostedFrom.likes?.length || 0,
+                  author: originalAuthor
+                    ? {
                       ...originalAuthor,
                       isFollowing: !!originalFollowStatus,
                       followStatus: originalFollowStatus,
                     }
-                  : originalAuthor,
-              };
-            }
+                    : originalAuthor,
+                };
+              }
 
-            return {
-              ...threadData,
-              isLiked: !!isLiked,
-              isReposted,
-              author: {
-                ...thread.author.toObject(),
-                isFollowing: isFollowing,
-                followStatus: followStatus,
-              },
-            };
-          }),
-        )
-      ).filter(Boolean);
+              return {
+                ...threadData,
+                isLiked: !!isLiked,
+                isReposted,
+                author: {
+                  ...thread.author.toObject(),
+                  isFollowing: isFollowing,
+                  followStatus: followStatus,
+                },
+              };
+            }),
+          )
+        ).filter(Boolean);
       } else {
         // Même sans utilisateur connecté, populate repostedFrom
         threadsWithLikes = (
@@ -204,29 +194,29 @@ class ThreadService {
               if (!thread.author) {
                 return null;
               }
-            let threadData = thread.toObject();
+              let threadData = thread.toObject();
 
-            if (thread.repostedFrom) {
-              await thread.populate({
-                path: "repostedFrom",
-                select:
-                  "author content media likes replies repliesCount repostsCount createdAt updatedAt",
-                populate: {
-                  path: "author",
-                  select: "username name profilePicture isVerified",
-                },
-              });
+              if (thread.repostedFrom) {
+                await thread.populate({
+                  path: "repostedFrom",
+                  select:
+                    "author content media likes replies repliesCount repostsCount createdAt updatedAt",
+                  populate: {
+                    path: "author",
+                    select: "username name profilePicture isVerified",
+                  },
+                });
 
-              threadData.repostedFrom = {
-                ...thread.repostedFrom.toObject(),
-                likesCount: thread.repostedFrom.likes?.length || 0,
-              };
-            }
+                threadData.repostedFrom = {
+                  ...thread.repostedFrom.toObject(),
+                  likesCount: thread.repostedFrom.likes?.length || 0,
+                };
+              }
 
-            return threadData;
-          }),
-        )
-      ).filter(Boolean);
+              return threadData;
+            }),
+          )
+        ).filter(Boolean);
       }
 
       return {
@@ -313,76 +303,76 @@ class ThreadService {
             if (!thread.author) {
               return null;
             }
-          const isLiked = await Like.exists({
-            user: currentUserId,
-            thread: thread._id,
-          });
-
-          const authorId = thread.author._id.toString();
-          const followStatus = followedMap.get(authorId);
-          const repostSourceId =
-            thread.repostedFrom?._id || thread.repostedFrom || thread._id;
-          const isReposted = repostedMap.has(repostSourceId.toString());
-
-          let threadData = thread.toObject();
-
-          // Populate repostedFrom avec toutes les infos
-          if (thread.repostedFrom) {
-            await thread.populate({
-              path: "repostedFrom",
-              select:
-                "author content media likes replies repliesCount repostsCount createdAt updatedAt",
-              populate: {
-                path: "author",
-                select: "username name profilePicture isVerified",
-              },
+            const isLiked = await Like.exists({
+              user: currentUserId,
+              thread: thread._id,
             });
 
-            const originalThreadId =
-              thread.repostedFrom?._id || thread.repostedFrom;
-            const originalIsLiked = originalThreadId
-              ? await Like.exists({
+            const authorId = thread.author._id.toString();
+            const followStatus = followedMap.get(authorId);
+            const repostSourceId =
+              thread.repostedFrom?._id || thread.repostedFrom || thread._id;
+            const isReposted = repostedMap.has(repostSourceId.toString());
+
+            let threadData = thread.toObject();
+
+            // Populate repostedFrom avec toutes les infos
+            if (thread.repostedFrom) {
+              await thread.populate({
+                path: "repostedFrom",
+                select:
+                  "author content media likes replies repliesCount repostsCount createdAt updatedAt",
+                populate: {
+                  path: "author",
+                  select: "username name profilePicture isVerified",
+                },
+              });
+
+              const originalThreadId =
+                thread.repostedFrom?._id || thread.repostedFrom;
+              const originalIsLiked = originalThreadId
+                ? await Like.exists({
                   user: currentUserId,
                   thread: originalThreadId,
                 })
-              : false;
+                : false;
 
-            const originalAuthor =
-              typeof thread.repostedFrom.author?.toObject === "function"
-                ? thread.repostedFrom.author.toObject()
-                : thread.repostedFrom.author;
-            const originalAuthorId = originalAuthor?._id?.toString();
-            const originalFollowStatus = originalAuthorId
-              ? followedMap.get(originalAuthorId)
-              : null;
+              const originalAuthor =
+                typeof thread.repostedFrom.author?.toObject === "function"
+                  ? thread.repostedFrom.author.toObject()
+                  : thread.repostedFrom.author;
+              const originalAuthorId = originalAuthor?._id?.toString();
+              const originalFollowStatus = originalAuthorId
+                ? followedMap.get(originalAuthorId)
+                : null;
 
-            threadData.repostedFrom = {
-              ...thread.repostedFrom.toObject(),
-              isLiked: !!originalIsLiked,
-              likesCount: thread.repostedFrom.likes?.length || 0,
-              author: originalAuthor
-                ? {
+              threadData.repostedFrom = {
+                ...thread.repostedFrom.toObject(),
+                isLiked: !!originalIsLiked,
+                likesCount: thread.repostedFrom.likes?.length || 0,
+                author: originalAuthor
+                  ? {
                     ...originalAuthor,
                     isFollowing: !!originalFollowStatus,
                     followStatus: originalFollowStatus,
                   }
-                : originalAuthor,
-            };
-          }
+                  : originalAuthor,
+              };
+            }
 
-          return {
-            ...threadData,
-            isLiked: !!isLiked,
-            isReposted,
-            author: {
-              ...thread.author.toObject(),
-              isFollowing: !!followStatus,
-              followStatus: followStatus,
-            },
-          };
-        }),
-      )
-    ).filter(Boolean);
+            return {
+              ...threadData,
+              isLiked: !!isLiked,
+              isReposted,
+              author: {
+                ...thread.author.toObject(),
+                isFollowing: !!followStatus,
+                followStatus: followStatus,
+              },
+            };
+          }),
+        )
+      ).filter(Boolean);
 
       return {
         threads: threadsWithLikes,
@@ -478,17 +468,17 @@ class ThreadService {
             thread.repostedFrom?._id || thread.repostedFrom;
           const originalIsLiked = originalThreadId
             ? await Like.exists({
-                user: currentUserId,
-                thread: originalThreadId,
-              })
+              user: currentUserId,
+              thread: originalThreadId,
+            })
             : false;
           const originalAuthorId = thread.repostedFrom?.author?._id;
           const originalFollowStatus = originalAuthorId
             ? await Follow.findOne({
-                follower: currentUserId,
-                following: originalAuthorId,
-                status: { $in: ["accepte", "en_attente"] },
-              }).select("status")
+              follower: currentUserId,
+              following: originalAuthorId,
+              status: { $in: ["accepte", "en_attente"] },
+            }).select("status")
             : null;
 
           threadData.repostedFrom = {
@@ -497,10 +487,10 @@ class ThreadService {
             likesCount: thread.repostedFrom.likes?.length || 0,
             author: thread.repostedFrom.author
               ? {
-                  ...thread.repostedFrom.author.toObject(),
-                  isFollowing: !!originalFollowStatus,
-                  followStatus: originalFollowStatus?.status,
-                }
+                ...thread.repostedFrom.author.toObject(),
+                isFollowing: !!originalFollowStatus,
+                followStatus: originalFollowStatus?.status,
+              }
               : thread.repostedFrom.author,
           };
         } else {
@@ -536,13 +526,13 @@ class ThreadService {
       // Vérifier si l'utilisateur peut voir les posts
       // 1. Si c'est son propre profil, toujours autoriser
       const isOwnProfile = currentUserId && currentUserId.toString() === userId.toString();
-      
+
       if (!isOwnProfile) {
         // 2. Si le compte est privé et l'utilisateur n'est pas connecté, bloquer
         if (targetUser.isPrivate && !currentUserId) {
           throw new Error("Ce compte est privé");
         }
-        
+
         // 3. Si l'utilisateur est connecté mais pas le propriétaire, vérifier les permissions
         if (currentUserId) {
           const canView = await settingsService.canViewContent(
@@ -600,76 +590,76 @@ class ThreadService {
               if (!thread.author) {
                 return null;
               }
-            const isLiked = await Like.exists({
-              user: currentUserId,
-              thread: thread._id,
-            });
-
-            const authorId = thread.author._id.toString();
-            const followStatus = followedMap.get(authorId);
-            const repostSourceId =
-              thread.repostedFrom?._id || thread.repostedFrom || thread._id;
-            const isReposted = repostedMap.has(repostSourceId.toString());
-
-            let threadData = thread.toObject();
-
-            // Populate repostedFrom
-            if (thread.repostedFrom) {
-              await thread.populate({
-                path: "repostedFrom",
-                select:
-                  "author content media likes replies repliesCount repostsCount createdAt updatedAt",
-                populate: {
-                  path: "author",
-                  select: "username name profilePicture isVerified",
-                },
+              const isLiked = await Like.exists({
+                user: currentUserId,
+                thread: thread._id,
               });
 
-              const originalThreadId =
-                thread.repostedFrom?._id || thread.repostedFrom;
-              const originalIsLiked = originalThreadId
-                ? await Like.exists({
+              const authorId = thread.author._id.toString();
+              const followStatus = followedMap.get(authorId);
+              const repostSourceId =
+                thread.repostedFrom?._id || thread.repostedFrom || thread._id;
+              const isReposted = repostedMap.has(repostSourceId.toString());
+
+              let threadData = thread.toObject();
+
+              // Populate repostedFrom
+              if (thread.repostedFrom) {
+                await thread.populate({
+                  path: "repostedFrom",
+                  select:
+                    "author content media likes replies repliesCount repostsCount createdAt updatedAt",
+                  populate: {
+                    path: "author",
+                    select: "username name profilePicture isVerified",
+                  },
+                });
+
+                const originalThreadId =
+                  thread.repostedFrom?._id || thread.repostedFrom;
+                const originalIsLiked = originalThreadId
+                  ? await Like.exists({
                     user: currentUserId,
                     thread: originalThreadId,
                   })
-                : false;
+                  : false;
 
-              const originalAuthor =
-                typeof thread.repostedFrom.author?.toObject === "function"
-                  ? thread.repostedFrom.author.toObject()
-                  : thread.repostedFrom.author;
-              const originalAuthorId = originalAuthor?._id?.toString();
-              const originalFollowStatus = originalAuthorId
-                ? followedMap.get(originalAuthorId)
-                : null;
+                const originalAuthor =
+                  typeof thread.repostedFrom.author?.toObject === "function"
+                    ? thread.repostedFrom.author.toObject()
+                    : thread.repostedFrom.author;
+                const originalAuthorId = originalAuthor?._id?.toString();
+                const originalFollowStatus = originalAuthorId
+                  ? followedMap.get(originalAuthorId)
+                  : null;
 
-              threadData.repostedFrom = {
-                ...thread.repostedFrom.toObject(),
-                isLiked: !!originalIsLiked,
-                likesCount: thread.repostedFrom.likes?.length || 0,
-                author: originalAuthor
-                  ? {
+                threadData.repostedFrom = {
+                  ...thread.repostedFrom.toObject(),
+                  isLiked: !!originalIsLiked,
+                  likesCount: thread.repostedFrom.likes?.length || 0,
+                  author: originalAuthor
+                    ? {
                       ...originalAuthor,
                       isFollowing: !!originalFollowStatus,
                       followStatus: originalFollowStatus,
                     }
-                  : originalAuthor,
-              };
-            }
+                    : originalAuthor,
+                };
+              }
 
-            return {
-              ...threadData,
-              isLiked: !!isLiked,
-              isReposted,
-              author: {
-                ...thread.author.toObject(),
-                isFollowing: !!followStatus,
-                followStatus: followStatus,
-              },
-            };
-          }),
-        )
-      ).filter(Boolean);
+              return {
+                ...threadData,
+                isLiked: !!isLiked,
+                isReposted,
+                author: {
+                  ...thread.author.toObject(),
+                  isFollowing: !!followStatus,
+                  followStatus: followStatus,
+                },
+              };
+            }),
+          )
+        ).filter(Boolean);
       } else {
         // Sans utilisateur connecté, populate quand même repostedFrom
         threadsWithLikes = (
@@ -678,29 +668,29 @@ class ThreadService {
               if (!thread.author) {
                 return null;
               }
-            let threadData = thread.toObject();
+              let threadData = thread.toObject();
 
-            if (thread.repostedFrom) {
-              await thread.populate({
-                path: "repostedFrom",
-                select:
-                  "author content media likes replies repliesCount repostsCount createdAt updatedAt",
-                populate: {
-                  path: "author",
-                  select: "username name profilePicture isVerified",
-                },
-              });
+              if (thread.repostedFrom) {
+                await thread.populate({
+                  path: "repostedFrom",
+                  select:
+                    "author content media likes replies repliesCount repostsCount createdAt updatedAt",
+                  populate: {
+                    path: "author",
+                    select: "username name profilePicture isVerified",
+                  },
+                });
 
-              threadData.repostedFrom = {
-                ...thread.repostedFrom.toObject(),
-                likesCount: thread.repostedFrom.likes?.length || 0,
-              };
-            }
+                threadData.repostedFrom = {
+                  ...thread.repostedFrom.toObject(),
+                  likesCount: thread.repostedFrom.likes?.length || 0,
+                };
+              }
 
-            return threadData;
-          }),
-        )
-      ).filter(Boolean);
+              return threadData;
+            }),
+          )
+        ).filter(Boolean);
       }
 
       return {
@@ -866,8 +856,8 @@ class ThreadService {
 
               const authorId = thread.author._id.toString();
               const followStatus = followedMap.get(authorId);
-            const repostSourceId =
-              thread.repostedFrom?._id || thread.repostedFrom || thread._id;
+              const repostSourceId =
+                thread.repostedFrom?._id || thread.repostedFrom || thread._id;
               const isReposted = repostedMap.has(repostSourceId.toString());
 
               let threadData = thread.toObject();
@@ -887,9 +877,9 @@ class ThreadService {
                   thread.repostedFrom?._id || thread.repostedFrom;
                 const originalIsLiked = originalThreadId
                   ? await Like.exists({
-                      user: currentUserId,
-                      thread: originalThreadId,
-                    })
+                    user: currentUserId,
+                    thread: originalThreadId,
+                  })
                   : false;
 
                 const originalAuthor =
@@ -907,10 +897,10 @@ class ThreadService {
                   likesCount: thread.repostedFrom.likes?.length || 0,
                   author: originalAuthor
                     ? {
-                        ...originalAuthor,
-                        isFollowing: !!originalFollowStatus,
-                        followStatus: originalFollowStatus,
-                      }
+                      ...originalAuthor,
+                      isFollowing: !!originalFollowStatus,
+                      followStatus: originalFollowStatus,
+                    }
                     : originalAuthor,
                 };
               }

@@ -131,7 +131,8 @@ class UserController {
 
       // ✅ AJOUT upload fichier
       if (req.file) {
-        imageUrl = `/uploads/${req.file.filename}`;
+        // Cloudinary retourne l'URL dans req.file.path
+        imageUrl = req.file.path || `/uploads/${req.file.filename}`;
       }
 
       if (!imageUrl) {
@@ -170,7 +171,8 @@ class UserController {
 
       // ✅ AJOUT upload fichier
       if (req.file) {
-        imageUrl = `/uploads/${req.file.filename}`;
+        // Cloudinary retourne l'URL dans req.file.path
+        imageUrl = req.file.path || `/uploads/${req.file.filename}`;
       }
 
       if (!imageUrl) {

@@ -9,7 +9,7 @@ const threadSchema = new mongoose.Schema(
     },
     content: {
       type: String,
-      required: [true, "Le contenu est requis"],
+      required: false, // Le contenu est optionnel (géré par le controller si média présent)
       maxlength: [500, "Le contenu ne peut pas dépasser 500 caractères"],
       trim: true,
     },

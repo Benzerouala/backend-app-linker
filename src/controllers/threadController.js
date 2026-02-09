@@ -28,14 +28,16 @@ class ThreadController {
 
       let media = null;
       if (req.file) {
-        // Fichier uploadé localement
+        // Cloudinary retourne l'URL dans req.file.path
+        // Stockage local retourne le filename dans req.file.filename
+        const mediaUrl = req.file.path || `/uploads/${req.file.filename}`;
+
         media = {
-          url: `/uploads/${req.file.filename}`,
+          url: mediaUrl,
           type: req.file.mimetype.startsWith("image/") ? "image" : "video",
         };
         console.log("✅ Media set:", media);
       }
-
       if (!content || content.trim().length === 0) {
         // Permettre un post sans contenu SEULEMENT s'il y a un média
         if (!media) {
@@ -234,9 +236,12 @@ class ThreadController {
 
       let media = null;
       if (req.file) {
-        // Fichier uploadé localement
+        // Cloudinary retourne l'URL dans req.file.path
+        // Stockage local retourne le filename dans req.file.filename
+        const mediaUrl = req.file.path || `/uploads/${req.file.filename}`;
+
         media = {
-          url: `/uploads/${req.file.filename}`,
+          url: mediaUrl,
           type: req.file.mimetype.startsWith("image/") ? "image" : "video",
         };
       }
