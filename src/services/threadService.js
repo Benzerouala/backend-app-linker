@@ -14,10 +14,24 @@ class ThreadService {
    */
   async createThread(authorId, content, media = null) {
     try {
+      // Vérifier si le fichier média existe avant de créer le thread
+      let mediaData = media;
+      if (media && media.url) {
+        const fs = await import('fs');
+        const path = await import('path');
+        const __dirname = path.dirname(new URL(import.meta.url).pathname);
+        const filePath = path.join(__dirname, "../uploads", path.basename(media.url));
+        
+        if (!fs.existsSync(filePath)) {
+          console.log("⚠️ Fichier média non trouvé:", filePath);
+          mediaData = null; // Ne pas inclure le média s'il n'existe pas
+        }
+      }
+
       const thread = await Thread.create({
         author: authorId,
         content,
-        media,
+        media: mediaData,
       });
 
       await userService.incrementThreadsCount(authorId);
@@ -519,13 +533,25 @@ class ThreadService {
         throw new Error("Utilisateur non trouvé");
       }
 
-      if (currentUserId && currentUserId.toString() !== userId.toString()) {
-        const canView = await settingsService.canViewContent(
-          currentUserId,
-          userId,
-        );
-        if (!canView) {
+      // Vérifier si l'utilisateur peut voir les posts
+      // 1. Si c'est son propre profil, toujours autoriser
+      const isOwnProfile = currentUserId && currentUserId.toString() === userId.toString();
+      
+      if (!isOwnProfile) {
+        // 2. Si le compte est privé et l'utilisateur n'est pas connecté, bloquer
+        if (targetUser.isPrivate && !currentUserId) {
           throw new Error("Ce compte est privé");
+        }
+        
+        // 3. Si l'utilisateur est connecté mais pas le propriétaire, vérifier les permissions
+        if (currentUserId) {
+          const canView = await settingsService.canViewContent(
+            currentUserId,
+            userId,
+          );
+          if (!canView) {
+            throw new Error("Ce compte est privé");
+          }
         }
       }
 

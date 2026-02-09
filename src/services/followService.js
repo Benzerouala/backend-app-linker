@@ -167,7 +167,7 @@ class FollowService {
       throw new Error("Utilisateur non trouvé");
     }
 
-    // Si le compte est privé, vérifier les permissions
+    // Si le compte est privé, autoriser seulement le propriétaire ou les abonnés
     if (targetUser.isPrivate) {
       // Le propriétaire peut voir ses propres abonnés
       if (currentUserId && currentUserId.toString() === userId.toString()) {
@@ -209,7 +209,7 @@ class FollowService {
       throw new Error("Utilisateur non trouvé");
     }
 
-    // Si le compte est privé, vérifier les permissions
+    // Si le compte est privé, autoriser seulement le propriétaire ou les abonnés
     if (targetUser.isPrivate) {
       // Le propriétaire peut voir ses propres abonnements
       if (currentUserId && currentUserId.toString() === userId.toString()) {

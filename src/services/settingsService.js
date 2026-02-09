@@ -229,6 +229,31 @@ class SettingsService {
    */
   async canViewContent(viewerId, targetUserId) {
     try {
+      // 1. Vérifier d'abord le champ isPrivate du User (prioritaire)
+      const targetUser = await User.findById(targetUserId);
+      if (!targetUser) {
+        return false;
+      }
+
+      // Si le compte est privé (user.isPrivate = true)
+      if (targetUser.isPrivate) {
+        // Le propriétaire peut toujours voir son propre contenu
+        if (viewerId.toString() === targetUserId.toString()) {
+          return true;
+        }
+
+        // Vérifier si le viewer est un follower accepté
+        const Follow = (await import("../models/Follow.js")).default;
+        const followRelation = await Follow.findOne({
+          follower: viewerId,
+          following: targetUserId,
+          status: "accepte",
+        });
+
+        return !!followRelation;
+      }
+
+      // 2. Si le compte n'est pas privé, vérifier les settings avancés
       const targetSettings = await this.getUserSettings(targetUserId);
       const privacy = targetSettings.privacy;
 
@@ -252,8 +277,9 @@ class SettingsService {
           return true;
       }
     } catch (error) {
-      // En cas d'erreur, autoriser la consultation par défaut
-      return true;
+      console.error("Error in canViewContent:", error);
+      // En cas d'erreur, bloquer l'accès par sécurité
+      return false;
     }
   }
 
