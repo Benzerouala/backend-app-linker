@@ -40,15 +40,23 @@ app.use(
         "http://localhost:5175",
         "http://localhost:3000",
         "https://linker-fxy0.onrender.com",
-        "https://*.onrender.com",
+        "https://linker-3.onrender.com", // ✅ Added specific frontend URL
+        "https://backend-app-linker.onrender.com", // ✅ Allow self-origin just in case
         process.env.FRONTEND_URL,
       ].filter(Boolean);
 
+      // Check if origin is allowed (exact match)
       if (allowedOrigins.indexOf(origin) !== -1) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
+        return callback(null, true);
       }
+
+      // Check for subdomains on render (e.g. any-app.onrender.com)
+      // This regex allows any subdomain on onrender.com
+      if (origin && origin.match(/^https:\/\/.*\.onrender\.com$/)) {
+        return callback(null, true);
+      }
+
+      callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
   }),
